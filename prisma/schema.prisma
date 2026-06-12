@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Person {
+  id          String   @id @default(cuid())
+  firstName   String?
+  lastName    String?
+  displayName String
+  nickname    String?
+  birthDate   String?
+  city        String?
+  originCity  String?
+  address     String?
+  phone       String?
+  email       String?
+  role        String?
+  description String?
+  photoPath   String?
+  archived    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  relationshipsA Relationship[] @relation("PersonARelationships")
+  relationshipsB Relationship[] @relation("PersonBRelationships")
+  vehicleLinks   VehiclePersonLink[]
+  groups         PersonGroupLink[]
+}
+
+model Relationship {
+  id               String   @id @default(cuid())
+  personAId        String
+  personBId        String?
+  relationshipType String
+  direction        String?
+  strength         Int?
+  confidence       String
+  sourceId         String?
+  description      String?
+  sinceDate        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  personA Person  @relation("PersonARelationships", fields: [personAId], references: [id], onDelete: Cascade)
+  personB Person? @relation("PersonBRelationships", fields: [personBId], references: [id], onDelete: SetNull)
+  source  Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+}
+
+model Vehicle {
+  id              String   @id @default(cuid())
+  manufacturer    String?
+  model           String?
+  color           String?
+  year            Int?
+  licensePlate    String?
+  vehicleType     String?
+  photoPath       String?
+  specialFeatures String?
+  archived        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  personLinks VehiclePersonLink[]
+}
+
+model VehiclePersonLink {
+  id           String   @id @default(cuid())
+  vehicleId    String
+  personId     String
+  relationType String
+  confidence   String
+  sourceId     String?
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  person  Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
+  source  Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  color       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  persons PersonGroupLink[]
+}
+
+model PersonGroupLink {
+  id          String   @id @default(cuid())
+  personId    String
+  groupId     String
+  roleInGroup String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  group  Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}
+
+model Source {
+  id                  String   @id @default(cuid())
+  sourceType          String
+  sourceUrl           String?
+  sourceLabel         String?
+  collectedAt         DateTime @default(now())
+  confidence          String
+  originalTextSnippet String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  relationships Relationship[]
+  vehicleLinks  VehiclePersonLink[]
+}
+
+model ImportDraft {
+  id              String   @id @default(cuid())
+  sourceType      String
+  sourceUrl       String?
+  rawText         String?
+  screenshotPath  String?
+  extractedJson   String
+  missingInfoJson String
+  warningsJson    String
+  confidence      String
+  status          String   @default("draft")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model MediaAsset {
+  id                  String   @id @default(cuid())
+  filePath            String
+  originalFileName    String
+  mimeType            String
+  fileSize            Int
+  width               Int?
+  height              Int?
+  sha256Hash          String
+  perceptualHash      String
+  sourceType          String
+  sourceUrl           String?
+  sourceImportDraftId String?
+  purpose             String
+  linkedEntityType    String?
+  linkedEntityId      String?
+  analysisJson        String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  suggestions ImageSuggestion[]
+}
+
+model ImageSuggestion {
+  id                  String   @id @default(cuid())
+  mediaAssetId        String
+  suggestedEntityType String
+  suggestedEntityId   String
+  reason              String
+  evidenceType        String
+  confidence          String
+  status              String   @default("pending")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  mediaAsset MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+}
+
+model MissingInfoHint {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  fieldName  String
+  severity   String
+  message    String
+  resolved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
