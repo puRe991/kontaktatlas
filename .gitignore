@@ -1,0 +1,15 @@
+node_modules/
+dist/
+release/
+*.log
+.DS_Store
+prisma/dev.db
+prisma/dev.db-journal
+storage/images/*
+storage/screenshots/*
+storage/imports/*
+!storage/images/.gitkeep
+!storage/screenshots/.gitkeep
+!storage/imports/.gitkeep
+
+dist-electron/
