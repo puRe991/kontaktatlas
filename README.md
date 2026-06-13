@@ -12,6 +12,16 @@ npm install
 
 `postinstall` führt `prisma generate` aus. Die lokale SQLite-Datenbank wird beim Start/Build per `prisma db push` mit dem Prisma-Schema abgeglichen.
 
+### Hinweis zu 32-Bit-Node.js unter Windows
+
+Prisma unterstützt den standardmäßigen Node-API-Query-Engine-Typ `library` nicht mit 32-Bit-Node.js. Das Projekt setzt deshalb im Prisma-Generator `engineType = "binary"`, damit `npm install` auch auf 32-Bit-Node.js-Installationen erfolgreich `prisma generate` ausführen kann.
+
+Falls die Installation trotzdem mit einer Prisma-Query-Engine-Meldung abbricht:
+
+1. Prüfe, ob du den aktuellen Projektstand verwendest.
+2. Lösche alte Installationsartefakte mit `rmdir /s /q node_modules`, damit keine veralteten Prisma-Engines weiterverwendet werden.
+3. Führe anschließend erneut `npm install` aus.
+
 ## Start im Entwicklungsmodus
 
 ```bash
