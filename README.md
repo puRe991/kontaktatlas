@@ -10,17 +10,25 @@ KontaktAtlas ist ausdrücklich **keine** WPF-Anwendung, kein Visual-Studio-Proje
 npm install
 ```
 
-`postinstall` führt `prisma generate` aus. Die lokale SQLite-Datenbank wird beim Start/Build per `prisma db push` mit dem Prisma-Schema abgeglichen.
+`postinstall` führt `node scripts/prisma-generate-safe.mjs` aus. Das Skript entfernt vor `prisma generate` veraltete lokal generierte Prisma-Artefakte und setzt die Prisma-Engine explizit auf `binary`. Die lokale SQLite-Datenbank wird beim Start/Build per `prisma db push` mit dem Prisma-Schema abgeglichen.
+
+Wenn eine vorherige Installation defekte oder alte Artefakte hinterlassen hat, nutze eine saubere Neuinstallation:
+
+```bash
+npm run install:clean
+```
 
 ### Hinweis zu 32-Bit-Node.js unter Windows
 
-Prisma unterstützt den standardmäßigen Node-API-Query-Engine-Typ `library` nicht mit 32-Bit-Node.js. Das Projekt setzt deshalb im Prisma-Generator `engineType = "binary"`, damit `npm install` auch auf 32-Bit-Node.js-Installationen erfolgreich `prisma generate` ausführen kann.
+Prisma unterstützt den standardmäßigen Node-API-Query-Engine-Typ `library` nicht mit 32-Bit-Node.js. Das Projekt setzt deshalb im Prisma-Generator `engineType = "binary"` und zusätzlich während der Installation `PRISMA_CLIENT_ENGINE_TYPE=binary` sowie `PRISMA_CLI_QUERY_ENGINE_TYPE=binary`. Dadurch werden keine alten Node-API-Engines aus früheren Installationen weiterverwendet.
 
-Falls die Installation trotzdem mit einer Prisma-Query-Engine-Meldung abbricht:
+Falls `npm install` auf einem 32-Bit-System trotzdem an npm-Installationsskripten oder Prisma-Engine-Downloads scheitert, nutze den 32-Bit-Fallback:
 
-1. Prüfe, ob du den aktuellen Projektstand verwendest.
-2. Lösche alte Installationsartefakte mit `rmdir /s /q node_modules`, damit keine veralteten Prisma-Engines weiterverwendet werden.
-3. Führe anschließend erneut `npm install` aus.
+```bash
+npm run install:32bit
+```
+
+Der Fallback löscht alte Installationsartefakte, installiert Pakete zunächst mit `--ignore-scripts` und startet anschließend nur den robusten Prisma-Generator. Wenn Prisma auch dann keine passende 32-Bit-Engine erzeugen kann, legt das Skript `prisma/GENERATE_FAILED_32BIT.txt` mit konkreten nächsten Schritten an und bricht `npm install` nicht hart ab. Für Entwicklung und Build muss der Prisma Client aber erfolgreich erzeugt worden sein.
 
 ## Start im Entwicklungsmodus
 
