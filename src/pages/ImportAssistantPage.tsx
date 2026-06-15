@@ -2,13 +2,16 @@ import { FormEvent, useMemo, useState } from "react";
 import { Badge, Card, ErrorBox } from "../components/common/Ui";
 import { ParsedProfileText } from "../types/domain";
 import { api, unwrap } from "../services/apiClient";
+import { parseJsonOrFallback } from "../services/jsonUtils";
 export default function ImportAssistantPage() {
   const [draft, setDraft] = useState<any>();
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const parsed = useMemo(
     () =>
-      draft ? (JSON.parse(draft.extractedJson) as ParsedProfileText) : null,
+      draft
+        ? parseJsonOrFallback<ParsedProfileText | null>(draft.extractedJson, null)
+        : null,
     [draft],
   );
   async function analyze(e: FormEvent<HTMLFormElement>) {
@@ -23,7 +26,15 @@ export default function ImportAssistantPage() {
         }),
       );
       setDraft(d);
-      const p = JSON.parse(d.extractedJson) as ParsedProfileText;
+      const p = parseJsonOrFallback<ParsedProfileText | null>(
+        d.extractedJson,
+        null,
+      );
+      if (!p) {
+        setSelected(new Set());
+        setError("Entwurf enthält ungültige Analyse-Daten.");
+        return;
+      }
       setSelected(
         new Set(
           [...p.person, ...p.relationships, ...p.groups, ...p.vehicles]

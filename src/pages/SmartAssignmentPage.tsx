@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Badge, Card, Empty, ErrorBox } from "../components/common/Ui";
 import { api, unwrap } from "../services/apiClient";
+import { parseJsonOrFallback } from "../services/jsonUtils";
 export default function SmartAssignmentPage() {
   const [media, setMedia] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -79,7 +80,10 @@ export default function SmartAssignmentPage() {
                     {m.mimeType} · {Math.round(m.fileSize / 1024)} KB
                   </p>
                   <Badge>
-                    {JSON.parse(m.analysisJson || "{}").probablyScreenshotOrText
+                    {parseJsonOrFallback<{ probablyScreenshotOrText?: boolean }>(
+                      m.analysisJson,
+                      {},
+                    ).probablyScreenshotOrText
                       ? "Screenshot/Text möglich"
                       : "Allgemeine Bilddatei"}
                   </Badge>
