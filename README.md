@@ -10,7 +10,7 @@ KontaktAtlas ist ausdrücklich **keine** WPF-Anwendung, kein Visual-Studio-Proje
 npm install
 ```
 
-`postinstall` führt `node scripts/prisma-generate-safe.mjs` aus. Das Skript entfernt vor `prisma generate` veraltete lokal generierte Prisma-Artefakte und setzt die Prisma-Engine explizit auf `binary`. Die lokale SQLite-Datenbank wird beim Start/Build per `prisma db push` mit dem Prisma-Schema abgeglichen.
+`postinstall` führt `node scripts/prisma-generate-safe.mjs` aus. Das Skript entfernt vor `prisma generate` veraltete lokal generierte Prisma-Artefakte und setzt die Prisma-Engine explizit auf `binary`. Die lokale SQLite-Datenbank wird beim Start/Build über `node scripts/prisma-db-push-safe.mjs` mit dem Prisma-Schema abgeglichen. Der Wrapper setzt auch für `prisma db push` konsequent die Prisma Binary Engine, damit 32-Bit-Node.js nicht auf die nicht unterstützte Node-API-Engine zurückfällt.
 
 Wenn eine vorherige Installation defekte oder alte Artefakte hinterlassen hat, nutze eine saubere Neuinstallation:
 
@@ -20,7 +20,7 @@ npm run install:clean
 
 ### Hinweis zu 32-Bit-Node.js unter Windows
 
-Prisma unterstützt den standardmäßigen Node-API-Query-Engine-Typ `library` nicht mit 32-Bit-Node.js. Das Projekt setzt deshalb im Prisma-Generator `engineType = "binary"` und zusätzlich während der Installation `PRISMA_CLIENT_ENGINE_TYPE=binary` sowie `PRISMA_CLI_QUERY_ENGINE_TYPE=binary`. Dadurch werden keine alten Node-API-Engines aus früheren Installationen weiterverwendet.
+Prisma unterstützt den standardmäßigen Node-API-Query-Engine-Typ `library` nicht mit 32-Bit-Node.js. Das Projekt setzt deshalb im Prisma-Generator `engineType = "binary"` und zusätzlich bei Installation, Entwicklung und Build `PRISMA_CLIENT_ENGINE_TYPE=binary` sowie `PRISMA_CLI_QUERY_ENGINE_TYPE=binary`. Dadurch werden keine alten Node-API-Engines aus früheren Installationen weiterverwendet.
 
 Falls `npm install` auf einem 32-Bit-System trotzdem an npm-Installationsskripten oder Prisma-Engine-Downloads scheitert, nutze den 32-Bit-Fallback:
 
@@ -36,7 +36,7 @@ Der Fallback löscht alte Installationsartefakte, installiert Pakete zunächst m
 npm run dev
 ```
 
-Der Befehl startet Vite und anschließend Electron mit eigenem Desktopfenster. Der Renderer nutzt keine direkten Node-APIs. Dateisystem, SQLite und sichere lokale Operationen laufen im Electron-Main-Prozess und werden über `preload.ts`/IPC bereitgestellt.
+Der Befehl synchronisiert zuerst die SQLite-Datenbank mit der Prisma Binary Engine und startet danach Vite und Electron mit eigenem Desktopfenster. Der Renderer nutzt keine direkten Node-APIs. Dateisystem, SQLite und sichere lokale Operationen laufen im Electron-Main-Prozess und werden über `preload.ts`/IPC bereitgestellt.
 
 ## Build für Windows
 
