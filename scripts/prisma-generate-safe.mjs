@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { createPrismaEnv, runPrisma } from './prisma-runner.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const isWin = process.platform === 'win32';
@@ -27,19 +27,7 @@ async function removeIfPresent(path) {
 }
 
 function runPrismaGenerate(extraEnv = {}) {
-  const command = isWin ? 'npx.cmd' : 'npx';
-  return spawnSync(command, ['prisma', 'generate', '--schema', schema], {
-    cwd: root,
-    stdio: 'inherit',
-    shell: false,
-    env: {
-      ...process.env,
-      DATABASE_URL: process.env.DATABASE_URL ?? 'file:./storage/kontaktatlas.db',
-      PRISMA_CLIENT_ENGINE_TYPE: 'binary',
-      PRISMA_CLI_QUERY_ENGINE_TYPE: 'binary',
-      ...extraEnv,
-    },
-  });
+  return runPrisma(root, ['generate', '--schema', schema], createPrismaEnv(extraEnv));
 }
 
 async function main() {
