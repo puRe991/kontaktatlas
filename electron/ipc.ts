@@ -1,5 +1,5 @@
 import { ipcMain, dialog } from "electron";
-import { PrismaClient } from "@prisma/client";
+import { db } from "./localDb";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -9,7 +9,7 @@ import { analyzeImageMetadata } from "../src/services/imageAnalysisService";
 import { perceptualHashFromBytes } from "../src/services/imageHashService";
 import { createImageSuggestions } from "../src/services/smartSuggestionService";
 
-const prisma = new PrismaClient();
+const database = db;
 const storageRoot = path.resolve(process.cwd(), "storage");
 
 type Handler<T = unknown> = (payload: T) => Promise<unknown> | unknown;
@@ -56,17 +56,17 @@ async function dashboard() {
     openImageAssignments,
     unassignedImages,
   ] = await Promise.all([
-    prisma.person.count({ where: { archived: false } }),
-    prisma.relationship.count(),
-    prisma.vehicle.count({ where: { archived: false } }),
-    prisma.importDraft.count({ where: { status: "draft" } }),
-    prisma.person.findMany({
+    database.person.count({ where: { archived: false } }),
+    database.relationship.count(),
+    database.vehicle.count({ where: { archived: false } }),
+    database.importDraft.count({ where: { status: "draft" } }),
+    database.person.findMany({
       include: { relationshipsA: true, relationshipsB: true },
     }),
-    prisma.relationship.findMany(),
-    prisma.vehiclePersonLink.findMany(),
-    prisma.imageSuggestion.count({ where: { status: "pending" } }),
-    prisma.mediaAsset.count({ where: { linkedEntityId: null } }),
+    database.relationship.findMany(),
+    database.vehiclePersonLink.findMany(),
+    database.imageSuggestion.count({ where: { status: "pending" } }),
+    database.mediaAsset.count({ where: { linkedEntityId: null } }),
   ]);
   return {
     personsTotal,
@@ -87,19 +87,19 @@ async function dashboard() {
       vehiclesTotal - new Set(vehicleLinks.map((l) => l.vehicleId)).size,
     openImageAssignments,
     unassignedImages,
-    importDraftsWithOpenMedia: await prisma.mediaAsset.count({
+    importDraftsWithOpenMedia: await database.mediaAsset.count({
       where: { purpose: "import_attachment", linkedEntityId: null },
     }),
   };
 }
 
 async function createSuggestionsForMedia(
-  media: Awaited<ReturnType<typeof prisma.mediaAsset.create>>,
+  media: any,
 ) {
   const [existingMedia, persons, vehicles] = await Promise.all([
-    prisma.mediaAsset.findMany({ where: { NOT: { id: media.id } } }),
-    prisma.person.findMany(),
-    prisma.vehicle.findMany(),
+    database.mediaAsset.findMany({ where: { NOT: { id: media.id } } }),
+    database.person.findMany(),
+    database.vehicle.findMany(),
   ]);
   const candidates = [
     ...persons.map((p) => ({
@@ -131,20 +131,20 @@ async function createSuggestionsForMedia(
     candidates,
   );
   for (const draft of drafts)
-    await prisma.imageSuggestion.create({ data: draft });
+    await database.imageSuggestion.create({ data: draft });
 }
 
 export function registerIpcHandlers() {
   safe("dashboard:get", dashboard);
 
   safe("persons:list", () =>
-    prisma.person.findMany({
+    database.person.findMany({
       orderBy: { updatedAt: "desc" },
       include: { relationshipsA: true, relationshipsB: true },
     }),
   );
   safe("persons:get", (id) =>
-    prisma.person.findUnique({
+    database.person.findUnique({
       where: { id: requireString(id, "Person-ID") },
       include: {
         relationshipsA: true,
@@ -155,7 +155,7 @@ export function registerIpcHandlers() {
     }),
   );
   safe("persons:create", (payload: any) =>
-    prisma.person.create({
+    database.person.create({
       data: {
         ...payload,
         displayName: requireString(payload?.displayName, "Anzeigename"),
@@ -163,23 +163,23 @@ export function registerIpcHandlers() {
     }),
   );
   safe("persons:update", (payload: any) =>
-    prisma.person.update({
+    database.person.update({
       where: { id: requireString(payload?.id, "Person-ID") },
       data: payload.data,
     }),
   );
   safe("persons:delete", (id) =>
-    prisma.person.delete({ where: { id: requireString(id, "Person-ID") } }),
+    database.person.delete({ where: { id: requireString(id, "Person-ID") } }),
   );
 
   safe("vehicles:list", () =>
-    prisma.vehicle.findMany({
+    database.vehicle.findMany({
       orderBy: { updatedAt: "desc" },
       include: { personLinks: true },
     }),
   );
   safe("vehicles:create", (payload: any) =>
-    prisma.vehicle.create({
+    database.vehicle.create({
       data: {
         manufacturer: payload?.manufacturer || undefined,
         model: payload?.model || undefined,
@@ -192,17 +192,17 @@ export function registerIpcHandlers() {
     }),
   );
   safe("vehicles:delete", (id) =>
-    prisma.vehicle.delete({ where: { id: requireString(id, "Fahrzeug-ID") } }),
+    database.vehicle.delete({ where: { id: requireString(id, "Fahrzeug-ID") } }),
   );
 
   safe("relationships:list", () =>
-    prisma.relationship.findMany({
+    database.relationship.findMany({
       orderBy: { updatedAt: "desc" },
       include: { personA: true, personB: true },
     }),
   );
   safe("relationships:create", (payload: any) =>
-    prisma.relationship.create({
+    database.relationship.create({
       data: {
         personAId: requireString(payload?.personAId, "Person A"),
         personBId: payload?.personBId || undefined,
@@ -215,18 +215,18 @@ export function registerIpcHandlers() {
     }),
   );
   safe("relationships:delete", (id) =>
-    prisma.relationship.delete({
+    database.relationship.delete({
       where: { id: requireString(id, "Beziehungs-ID") },
     }),
   );
 
   safe("importDrafts:list", () =>
-    prisma.importDraft.findMany({ orderBy: { updatedAt: "desc" } }),
+    database.importDraft.findMany({ orderBy: { updatedAt: "desc" } }),
   );
   safe("importDrafts:analyze", async (payload: any) => {
     const rawText = requireString(payload?.rawText, "Profiltext");
     const parsed = parseProfileText(rawText);
-    return prisma.importDraft.create({
+    return database.importDraft.create({
       data: {
         sourceType: payload?.sourceType || "Sonstiges",
         sourceUrl: payload?.sourceUrl || undefined,
@@ -241,7 +241,7 @@ export function registerIpcHandlers() {
   });
   safe("importDrafts:acceptSelected", async (payload: any) => {
     const id = requireString(payload?.id, "Entwurfs-ID");
-    const draft = await prisma.importDraft.findUnique({ where: { id } });
+    const draft = await database.importDraft.findUnique({ where: { id } });
     if (!draft) throw new Error("Import-Entwurf nicht gefunden.");
     const selected = Array.isArray(payload?.selectedFields)
       ? payload.selectedFields
@@ -251,7 +251,7 @@ export function registerIpcHandlers() {
       throw new Error(
         "Keine ausgewählten Personendaten mit Anzeigename vorhanden.",
       );
-    const source = await prisma.source.create({
+    const source = await database.source.create({
       data: {
         sourceType: draft.sourceType,
         sourceUrl: draft.sourceUrl,
@@ -260,7 +260,7 @@ export function registerIpcHandlers() {
         originalTextSnippet: (draft.rawText ?? "").slice(0, 500),
       },
     });
-    const person = await prisma.person.create({
+    const person = await database.person.create({
       data: {
         displayName: personData.displayName,
         firstName: personData.firstName,
@@ -271,33 +271,33 @@ export function registerIpcHandlers() {
         role: personData.role,
       },
     });
-    await prisma.importDraft.update({
+    await database.importDraft.update({
       where: { id },
       data: { status: "accepted" },
     });
     return { person, source };
   });
   safe("importDrafts:discard", (id) =>
-    prisma.importDraft.update({
+    database.importDraft.update({
       where: { id: requireString(id, "Entwurfs-ID") },
       data: { status: "rejected" },
     }),
   );
   safe("importDrafts:deleteRawText", (id) =>
-    prisma.importDraft.update({
+    database.importDraft.update({
       where: { id: requireString(id, "Entwurfs-ID") },
       data: { rawText: "" },
     }),
   );
 
   safe("media:list", () =>
-    prisma.mediaAsset.findMany({
+    database.mediaAsset.findMany({
       orderBy: { updatedAt: "desc" },
       include: { suggestions: true },
     }),
   );
   safe("media:suggestions", () =>
-    prisma.imageSuggestion.findMany({
+    database.imageSuggestion.findMany({
       where: { status: "pending" },
       include: { mediaAsset: true },
       orderBy: { createdAt: "desc" },
@@ -334,7 +334,7 @@ export function registerIpcHandlers() {
         undefined,
         bytes.byteLength,
       );
-      const media = await prisma.mediaAsset.create({
+      const media = await database.mediaAsset.create({
         data: {
           filePath: target,
           originalFileName: path.basename(filePath),
@@ -353,24 +353,24 @@ export function registerIpcHandlers() {
     return created;
   });
   safe("media:acceptSuggestion", async (payload: any) => {
-    const suggestion = await prisma.imageSuggestion.findUnique({
+    const suggestion = await database.imageSuggestion.findUnique({
       where: { id: requireString(payload?.id, "Vorschlags-ID") },
     });
     if (!suggestion) throw new Error("Vorschlag nicht gefunden.");
-    await prisma.mediaAsset.update({
+    await database.mediaAsset.update({
       where: { id: suggestion.mediaAssetId },
       data: {
         linkedEntityType: suggestion.suggestedEntityType,
         linkedEntityId: suggestion.suggestedEntityId,
       },
     });
-    return prisma.imageSuggestion.update({
+    return database.imageSuggestion.update({
       where: { id: suggestion.id },
       data: { status: "accepted" },
     });
   });
   safe("media:rejectSuggestion", (id) =>
-    prisma.imageSuggestion.update({
+    database.imageSuggestion.update({
       where: { id: requireString(id, "Vorschlags-ID") },
       data: { status: "rejected" },
     }),
@@ -387,18 +387,18 @@ export function registerIpcHandlers() {
       !["person", "vehicle", "importDraft", "group"].includes(linkedEntityType)
     )
       throw new Error("Ungültiger Zieltyp.");
-    return prisma.mediaAsset.update({
+    return database.mediaAsset.update({
       where: { id: mediaId },
       data: { linkedEntityType, linkedEntityId },
     });
   });
 
   safe("media:delete", async (id) => {
-    const media = await prisma.mediaAsset.findUnique({
+    const media = await database.mediaAsset.findUnique({
       where: { id: requireString(id, "Medien-ID") },
     });
     if (!media) throw new Error("Bild nicht gefunden.");
-    await prisma.mediaAsset.delete({ where: { id: media.id } });
+    await database.mediaAsset.delete({ where: { id: media.id } });
     await fs.rm(media.filePath, { force: true });
     return true;
   });
@@ -407,7 +407,7 @@ export function registerIpcHandlers() {
     const q = requireString(query, "Suchbegriff");
     const contains = { contains: q };
     const [persons, vehicles, groups, drafts] = await Promise.all([
-      prisma.person.findMany({
+      database.person.findMany({
         where: {
           OR: [
             { displayName: contains },
@@ -418,7 +418,7 @@ export function registerIpcHandlers() {
           ],
         },
       }),
-      prisma.vehicle.findMany({
+      database.vehicle.findMany({
         where: {
           OR: [
             { manufacturer: contains },
@@ -428,21 +428,21 @@ export function registerIpcHandlers() {
           ],
         },
       }),
-      prisma.group.findMany({
+      database.group.findMany({
         where: { OR: [{ name: contains }, { description: contains }] },
       }),
-      prisma.importDraft.findMany({
+      database.importDraft.findMany({
         where: { OR: [{ rawText: contains }, { sourceUrl: contains }] },
       }),
     ]);
     return { persons, vehicles, groups, drafts };
   });
   safe("export:json", async () => ({
-    persons: await prisma.person.findMany(),
-    vehicles: await prisma.vehicle.findMany(),
-    relationships: await prisma.relationship.findMany(),
-    importDrafts: await prisma.importDraft.findMany(),
-    mediaAssets: await prisma.mediaAsset.findMany(),
+    persons: await database.person.findMany(),
+    vehicles: await database.vehicle.findMany(),
+    relationships: await database.relationship.findMany(),
+    importDrafts: await database.importDraft.findMany(),
+    mediaAssets: await database.mediaAsset.findMany(),
   }));
   safe("import:json", async () => {
     throw new Error(

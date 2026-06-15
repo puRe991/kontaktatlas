@@ -17,7 +17,7 @@ export default function SettingsPage() {
       <ErrorBox error={error} />
       <Card title="Datenschutz & Grenzen">
         <ul>
-          <li>Alle Daten bleiben lokal in SQLite und im storage-Ordner.</li>
+          <li>Alle Daten bleiben lokal in der JSON-Datenbank und im storage-Ordner.</li>
           <li>
             Keine Cloud-Synchronisation und keine automatische externe
             Datenübertragung.

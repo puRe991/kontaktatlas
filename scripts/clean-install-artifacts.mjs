@@ -11,8 +11,6 @@ const targets = [
   'dist',
   'dist-electron',
   'release',
-  join('prisma', 'GENERATE_FAILED_32BIT.txt'),
-  join('prisma', 'WINDOWS_32BIT_UNSUPPORTED.txt'),
 ];
 
 for (const target of targets) {

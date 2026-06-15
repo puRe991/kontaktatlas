@@ -1,6 +1,6 @@
 # KontaktAtlas
 
-KontaktAtlas ist eine lokale Electron-Desktopsoftware zur Verwaltung von Personen, Beziehungen, Fahrzeugen, Gruppen, Bildern, Quellen und Import-Entwürfen. Die Oberfläche läuft mit React, TypeScript und Vite in einem Electron-Fenster. Daten bleiben lokal in SQLite/Prisma und im Ordner `storage/`.
+KontaktAtlas ist eine lokale Electron-Desktopsoftware zur Verwaltung von Personen, Beziehungen, Fahrzeugen, Gruppen, Bildern, Quellen und Import-Entwürfen. Die Oberfläche läuft mit React, TypeScript und Vite in einem Electron-Fenster. Daten bleiben lokal in einer 32-Bit-kompatiblen JSON-Datenbank im Ordner `storage/`.
 
 KontaktAtlas ist ausdrücklich **keine** WPF-Anwendung, kein Visual-Studio-Projekt und keine klassische Webanwendung im normalen Browser.
 
@@ -10,7 +10,7 @@ KontaktAtlas ist ausdrücklich **keine** WPF-Anwendung, kein Visual-Studio-Proje
 npm install
 ```
 
-`postinstall` führt `node scripts/prisma-generate-safe.mjs` aus. Das Skript entfernt vor `prisma generate` veraltete lokal generierte Prisma-Artefakte und setzt die Prisma-Engine explizit auf `binary`. Die lokale SQLite-Datenbank wird beim Start/Build über `node scripts/prisma-db-push-safe.mjs` mit dem Prisma-Schema abgeglichen. Der Wrapper setzt auch für `prisma db push` konsequent die Prisma Binary Engine, damit 32-Bit-Node.js nicht auf die nicht unterstützte Node-API-Engine zurückfällt.
+`postinstall` benötigt keine nativen Datenbank-Engines mehr. KontaktAtlas nutzt eine dateibasierte JSON-Datenbank (`storage/kontaktatlas.json`) und läuft deshalb auch mit 32-Bit-Node.js ohne Prisma-, SQLite- oder Node-API-Binaries.
 
 Wenn eine vorherige Installation defekte oder alte Artefakte hinterlassen hat, nutze eine saubere Neuinstallation:
 
@@ -18,17 +18,15 @@ Wenn eine vorherige Installation defekte oder alte Artefakte hinterlassen hat, n
 npm run install:clean
 ```
 
-### Hinweis zu 32-Bit-Node.js unter Windows
+### Hinweis zu 32-Bit-Systemen
 
-Prisma unterstützt den standardmäßigen Node-API-Query-Engine-Typ `library` nicht mit 32-Bit-Node.js. Das Projekt setzt deshalb im Prisma-Generator `engineType = "binary"` und zusätzlich bei Installation, Entwicklung und Build `PRISMA_CLIENT_ENGINE_TYPE=binary` sowie `PRISMA_CLI_QUERY_ENGINE_TYPE=binary`. Dadurch werden keine alten Node-API-Engines aus früheren Installationen weiterverwendet. Unter Windows bleibt 32-Bit-Node.js trotzdem nicht unterstützt, weil Prisma 5 die benötigte Schema Engine dort nicht zuverlässig als 32-Bit-Binary bereitstellt; der Wrapper bricht deshalb vor dem kryptischen Fehler `spawn UNKNOWN` mit einer konkreten Diagnose ab.
-
-Falls `npm install` auf einem 32-Bit-System trotzdem an npm-Installationsskripten oder Prisma-Engine-Downloads scheitert, nutze den 32-Bit-Bereinigungsfallback:
+Das Projekt wurde von Prisma/SQLite auf eine reine Node.js-JSON-Datenhaltung umgestellt. Dadurch entfallen native Query-Engines, Schema-Engines und Architektur-spezifische Datenbank-Binaries. Für Windows-32-Bit-Installer gibt es einen eigenen Build-Befehl:
 
 ```bash
-npm run install:32bit
+npm run build:win32
 ```
 
-Der Fallback löscht alte Installationsartefakte, installiert Pakete zunächst mit `--ignore-scripts` und startet anschließend nur den robusten Prisma-Generator. Wenn Prisma auch dann keine passende 32-Bit-Engine erzeugen kann, legt das Skript `prisma/GENERATE_FAILED_32BIT.txt` mit konkreten nächsten Schritten an und bricht `npm install` nicht hart ab. Auf Windows mit 32-Bit-Node.js legt der Start zusätzlich `prisma/WINDOWS_32BIT_UNSUPPORTED.txt` an. Für Entwicklung und Build brauchst du dort eine 64-Bit-Node.js-Installation, danach `npm run install:clean` und anschließend `npm run dev`.
+Die JSON-Datenbank schreibt Änderungen atomar über eine temporäre Datei und legt beschädigte Datenbankdateien beim Start als `.invalid-<timestamp>`-Backup ab. Für sehr große Datenmengen ist JSON weniger performant als SQLite; für die lokale Kontaktverwaltung ist die Lösung dafür deutlich robuster auf 32-Bit-Systemen.
 
 ## Start im Entwicklungsmodus
 
@@ -36,7 +34,7 @@ Der Fallback löscht alte Installationsartefakte, installiert Pakete zunächst m
 npm run dev
 ```
 
-Der Befehl synchronisiert zuerst die SQLite-Datenbank mit der Prisma Binary Engine und startet danach Vite und Electron mit eigenem Desktopfenster. Der Renderer nutzt keine direkten Node-APIs. Dateisystem, SQLite und sichere lokale Operationen laufen im Electron-Main-Prozess und werden über `preload.ts`/IPC bereitgestellt.
+Der Befehl startet Vite und Electron mit eigenem Desktopfenster. Der Renderer nutzt keine direkten Node-APIs. Dateisystem, JSON-Datenbank und sichere lokale Operationen laufen im Electron-Main-Prozess und werden über `preload.ts`/IPC bereitgestellt.
 
 ## Build für Windows
 
@@ -44,14 +42,13 @@ Der Befehl synchronisiert zuerst die SQLite-Datenbank mit der Prisma Binary Engi
 npm run build
 ```
 
-Der Build erstellt die Vite-Ausgabe und ein Electron-Builder-Verzeichnisbuild. Für produktive Windows-Installer kann die Electron-Builder-Konfiguration erweitert werden.
+Der Build erstellt die Vite-Ausgabe und ein Electron-Builder-Verzeichnisbuild für die aktuelle Plattform. Für Windows-32-Bit nutze `npm run build:win32`.
 
 ## Projektstruktur
 
 ```text
 kontakt-atlas/
 ├── electron/               # Electron Main, Preload und IPC
-├── prisma/                 # SQLite/Prisma-Datenmodell
 ├── src/
 │   ├── components/         # Layout und UI-Bausteine
 │   ├── pages/              # Dashboard, Personen, Import, Smart-Zuordnung usw.
@@ -114,7 +111,7 @@ Der `CompletenessService` bewertet Personen, Fahrzeuge und Beziehungen mit einem
 
 KontaktAtlas speichert lokal:
 
-- SQLite-Datenbank über Prisma,
+- JSON-Datenbank `storage/kontaktatlas.json`,
 - Bilder in `storage/images`,
 - Screenshots in `storage/screenshots`,
 - Importdateien in `storage/imports`.
@@ -142,7 +139,7 @@ KontaktAtlas liest Kennzeichen nicht automatisch aus Bildern aus. Kennzeichen au
 
 ## Lokale Speicherung erklären
 
-Alle Daten bleiben auf dem Gerät. Der Renderer kommuniziert ausschließlich über die sichere Preload-API mit dem Electron-Main-Prozess. Node.js-Zugriff, Dateisystemoperationen und Prisma laufen nicht direkt im Renderer.
+Alle Daten bleiben auf dem Gerät. Der Renderer kommuniziert ausschließlich über die sichere Preload-API mit dem Electron-Main-Prozess. Node.js-Zugriff, Dateisystemoperationen und Datenbankzugriffe laufen nicht direkt im Renderer.
 
 ## Qualitätssicherung
 
