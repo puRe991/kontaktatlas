@@ -2,7 +2,11 @@
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPrismaEnv, runPrisma } from './prisma-runner.mjs';
-import { isUnsupportedWindows32Bit, writeWindows32BitAdvisory } from './prisma-platform-guard.mjs';
+import {
+  isUnsupportedWindows32Bit,
+  reexecWithWindows64BitNodeIfAvailable,
+  writeWindows32BitAdvisory,
+} from './prisma-platform-guard.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const schema = join(root, 'prisma', 'schema.prisma');
@@ -18,6 +22,7 @@ function exitFrom(result) {
 console.log(`[kontakt-atlas:prisma] db push mit Prisma Binary Engine (Node ${process.version}, ${process.platform}/${process.arch})`);
 
 if (isUnsupportedWindows32Bit) {
+  reexecWithWindows64BitNodeIfAvailable(fileURLToPath(import.meta.url));
   const { advisoryFile, message } = await writeWindows32BitAdvisory(root, 'db push');
   console.error(`\n${message}\n`);
   console.error(`[kontakt-atlas:prisma] Hinweis gespeichert unter: ${advisoryFile}`);

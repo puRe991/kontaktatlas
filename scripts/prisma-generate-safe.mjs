@@ -4,7 +4,11 @@ import { rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPrismaEnv, runPrisma } from './prisma-runner.mjs';
-import { isUnsupportedWindows32Bit, writeWindows32BitAdvisory } from './prisma-platform-guard.mjs';
+import {
+  isUnsupportedWindows32Bit,
+  reexecWithWindows64BitNodeIfAvailable,
+  writeWindows32BitAdvisory,
+} from './prisma-platform-guard.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const isWin = process.platform === 'win32';
@@ -33,6 +37,10 @@ function runPrismaGenerate(extraEnv = {}) {
 
 async function main() {
   log(`Node ${process.version}, Plattform ${process.platform}, Architektur ${process.arch}`);
+
+  if (isUnsupportedWindows32Bit) {
+    reexecWithWindows64BitNodeIfAvailable(fileURLToPath(import.meta.url));
+  }
 
   for (const path of stalePaths) {
     await removeIfPresent(path);
