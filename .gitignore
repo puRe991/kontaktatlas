@@ -13,3 +13,5 @@ storage/imports/*
 !storage/imports/.gitkeep
 
 dist-electron/
+
+prisma/storage/
