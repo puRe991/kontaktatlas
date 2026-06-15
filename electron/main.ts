@@ -7,7 +7,7 @@ declare const __dirname: string;
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
 function getPreloadPath(isDev: boolean) {
-  return path.join(__dirname, isDev ? "preload.ts" : "preload.js");
+  return path.join(__dirname, isDev ? "dev-preload.cjs" : "preload.js");
 }
 
 async function loadRenderer(win: BrowserWindow, isDev: boolean) {
