@@ -4,6 +4,7 @@ import { rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPrismaEnv, runPrisma } from './prisma-runner.mjs';
+import { isUnsupportedWindows32Bit, writeWindows32BitAdvisory } from './prisma-platform-guard.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const isWin = process.platform === 'win32';
@@ -44,6 +45,12 @@ async function main() {
   }
 
   if (is32Bit) {
+    if (isUnsupportedWindows32Bit) {
+      const { advisoryFile: windowsAdvisoryFile, message: windowsMessage } = await writeWindows32BitAdvisory(root, 'generate');
+      console.warn(`\n${windowsMessage}\n`);
+      log(`Windows-32-Bit-Hinweis gespeichert unter: ${windowsAdvisoryFile}`);
+    }
+
     log('Prisma generate ist auf einem 32-Bit-System fehlgeschlagen. Starte Fallback ohne Engine-Download-Prüfung.');
     result = runPrismaGenerate({ PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING: '1' });
     if (result.status === 0) {
