@@ -16,10 +16,11 @@ export default function RelationshipsPage() {
   useEffect(load, []);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
     try {
       await unwrap(api().relationships.create(Object.fromEntries(fd)));
-      e.currentTarget.reset();
+      form.reset();
       load();
     } catch (err: any) {
       setError(err.message);
