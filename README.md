@@ -1,6 +1,6 @@
 # KontaktAtlas
 
-KontaktAtlas ist eine lokale Electron-Desktopsoftware zur Verwaltung von Personen, Beziehungen, Fahrzeugen, Gruppen, Bildern, Quellen und Import-Entwürfen. Die Oberfläche läuft mit React, TypeScript und Vite in einem Electron-Fenster. Daten bleiben lokal in einer 32-Bit-kompatiblen JSON-Datenbank im Ordner `storage/`.
+KontaktAtlas ist eine lokale Electron-Desktopsoftware zur Verwaltung von Personen, Beziehungen, Fahrzeugen, Gruppen, Bildern, Quellen und Import-Entwürfen. Die Oberfläche läuft mit React, TypeScript und Vite in einem Electron-Fenster. Daten bleiben lokal in einer 32-Bit-kompatiblen JSON-Datenbank unter Electron `app.getPath("userData")`.
 
 KontaktAtlas ist ausdrücklich **keine** WPF-Anwendung, kein Visual-Studio-Projekt und keine klassische Webanwendung im normalen Browser.
 
@@ -10,7 +10,7 @@ KontaktAtlas ist ausdrücklich **keine** WPF-Anwendung, kein Visual-Studio-Proje
 npm install
 ```
 
-`postinstall` benötigt keine nativen Datenbank-Engines mehr. KontaktAtlas nutzt eine dateibasierte JSON-Datenbank (`storage/kontaktatlas.json`) und läuft deshalb auch mit 32-Bit-Node.js ohne Prisma-, SQLite- oder Node-API-Binaries.
+`postinstall` benötigt keine nativen Datenbank-Engines mehr. KontaktAtlas nutzt eine dateibasierte JSON-Datenbank (`<userData>/storage/kontaktatlas.json` in Production, `<userData>/storage-dev/kontaktatlas.json` in Development) und läuft deshalb auch mit 32-Bit-Node.js ohne Prisma-, SQLite- oder Node-API-Binaries.
 
 Wenn eine vorherige Installation defekte oder alte Artefakte hinterlassen hat, nutze eine saubere Neuinstallation:
 
@@ -55,10 +55,6 @@ kontakt-atlas/
 │   ├── services/           # Parser, Hashing, Vorschläge, Datenqualität
 │   ├── types/              # gemeinsame TypeScript-Typen
 │   └── styles/             # dunkles UI-Theme
-├── storage/
-│   ├── images/             # lokale Bilder
-│   ├── screenshots/        # lokale Screenshots
-│   └── imports/            # lokale Importdateien
 └── tests/                  # Vitest-Tests
 ```
 
@@ -92,7 +88,7 @@ Kennzeichen werden nie automatisch übernommen. Nutzer müssen sie ausdrücklich
 
 ## Smart-Zuordnung
 
-Die Smart-Zuordnung importiert Bilder lokal in `storage/images`, berechnet `sha256Hash` für exakte Duplikate und einen einfachen `perceptualHash` für ähnliche Dateien. Die App erstellt nur neutrale Vorschläge, z. B.:
+Die Smart-Zuordnung importiert Bilder lokal in den kontrollierten App-Speicher (`<userData>/storage/images` in Production oder `<userData>/storage-dev/images` in Development), berechnet `sha256Hash` für exakte Duplikate und einen einfachen `perceptualHash` für ähnliche Dateien. Die App erstellt nur neutrale Vorschläge, z. B.:
 
 - „Bild stammt aus demselben Import-Entwurf.“
 - „Dateiname enthält den Namen dieser Person.“
@@ -109,12 +105,12 @@ Der `CompletenessService` bewertet Personen, Fahrzeuge und Beziehungen mit einem
 
 ## Datenschutz-Hinweise
 
-KontaktAtlas speichert lokal:
+KontaktAtlas speichert lokal unter dem von Electron verwalteten Profilordner `app.getPath("userData")`. Darunter legt die App kontrolliert getrennte Laufzeitordner an:
 
-- JSON-Datenbank `storage/kontaktatlas.json`,
-- Bilder in `storage/images`,
-- Screenshots in `storage/screenshots`,
-- Importdateien in `storage/imports`.
+- Production: JSON-Datenbank `<userData>/storage/kontaktatlas.json`, Bilder in `<userData>/storage/images`, Importdateien in `<userData>/storage/imports`.
+- Development: JSON-Datenbank `<userData>/storage-dev/kontaktatlas.json`, Bilder in `<userData>/storage-dev/images`, Importdateien in `<userData>/storage-dev/imports`.
+
+Die App nutzt `process.cwd()` nicht für produktive Persistenzpfade, weil das Arbeitsverzeichnis bei installierten Desktop-Apps nicht stabil ist.
 
 Es gibt keine Cloud-Synchronisation, keine automatische externe Datenübertragung und keine versteckte Browser-Aktivität.
 
