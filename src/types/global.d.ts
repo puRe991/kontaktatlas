@@ -48,5 +48,4 @@ export interface KontaktAtlasApi {
   };
   search(query: string): Promise<ApiResult<any>>;
   exportJson(): Promise<ApiResult<any>>;
-  importJson(payload: unknown): Promise<ApiResult<any>>;
 }

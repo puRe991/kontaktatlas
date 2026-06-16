@@ -444,6 +444,9 @@ export function registerIpcHandlers() {
     importDrafts: await database.importDraft.findMany(),
     mediaAssets: await database.mediaAsset.findMany(),
   }));
+  // Intentionally not exposed through the preload API: JSON import remains an
+  // internal placeholder until schema allow-listing, referential validation,
+  // sensitive-field review, and an explicit preview/confirmation UI exist.
   safe("import:json", async () => {
     throw new Error(
       "JSON-Import ist aus Sicherheitsgründen nur nach manueller Datei- und Feldprüfung vorgesehen.",

@@ -42,5 +42,4 @@ contextBridge.exposeInMainWorld("kontaktAtlas", {
   },
   search: (query: string) => invoke("search:global", query),
   exportJson: () => invoke("export:json"),
-  importJson: (payload: unknown) => invoke("import:json", payload),
 });
