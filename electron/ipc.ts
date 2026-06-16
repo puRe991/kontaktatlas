@@ -44,6 +44,35 @@ function requireString(value: unknown, label: string) {
   return value.trim();
 }
 
+const DEFAULT_RELATIONSHIP_STRENGTH = 1;
+const MIN_RELATIONSHIP_STRENGTH = 1;
+const MAX_RELATIONSHIP_STRENGTH = 5;
+
+function parseRelationshipStrength(value: unknown) {
+  if (value === undefined || value === null || value === "")
+    return DEFAULT_RELATIONSHIP_STRENGTH;
+
+  const strength =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.trim())
+        : Number.NaN;
+
+  if (!Number.isFinite(strength))
+    throw new Error("Beziehungsstärke muss eine endliche Zahl sein.");
+
+  if (
+    strength < MIN_RELATIONSHIP_STRENGTH ||
+    strength > MAX_RELATIONSHIP_STRENGTH
+  )
+    throw new Error(
+      `Beziehungsstärke muss zwischen ${MIN_RELATIONSHIP_STRENGTH} und ${MAX_RELATIONSHIP_STRENGTH} liegen.`,
+    );
+
+  return strength;
+}
+
 async function dashboard() {
   const [
     personsTotal,
@@ -208,7 +237,7 @@ export function registerIpcHandlers() {
         personBId: payload?.personBId || undefined,
         relationshipType: payload?.relationshipType || "unklar",
         direction: payload?.direction || undefined,
-        strength: Number(payload?.strength || 1),
+        strength: parseRelationshipStrength(payload?.strength),
         confidence: payload?.confidence || "medium",
         description: payload?.description || undefined,
       },
