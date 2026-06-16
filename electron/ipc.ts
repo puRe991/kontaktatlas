@@ -55,6 +55,43 @@ const DEFAULT_RELATIONSHIP_STRENGTH = 1;
 const MIN_RELATIONSHIP_STRENGTH = 1;
 const MAX_RELATIONSHIP_STRENGTH = 5;
 
+
+function optionalText(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function personDataFromPayload(payload: any) {
+  return {
+    displayName: requireString(payload?.displayName, "Anzeigename"),
+    firstName: optionalText(payload?.firstName),
+    lastName: optionalText(payload?.lastName),
+    city: optionalText(payload?.city),
+  };
+}
+
+function vehicleDataFromPayload(payload: any) {
+  const data: Record<string, unknown> = {
+    manufacturer: optionalText(payload?.manufacturer),
+    model: optionalText(payload?.model),
+    color: optionalText(payload?.color),
+    vehicleType: optionalText(payload?.vehicleType) || "Auto",
+  };
+  if (payload?.licensePlateConfirmed) data.licensePlate = optionalText(payload?.licensePlate);
+  return data;
+}
+
+function relationshipDataFromPayload(payload: any) {
+  return {
+    personAId: requireString(payload?.personAId, "Person A"),
+    personBId: payload?.personBId || undefined,
+    relationshipType: payload?.relationshipType || "unklar",
+    direction: payload?.direction || undefined,
+    strength: parseRelationshipStrength(payload?.strength),
+    confidence: payload?.confidence || "medium",
+    description: payload?.description || undefined,
+  };
+}
+
 function parseRelationshipStrength(value: unknown) {
   if (value === undefined || value === null || value === "")
     return DEFAULT_RELATIONSHIP_STRENGTH;
@@ -191,17 +228,12 @@ export function registerIpcHandlers() {
     }),
   );
   safe("persons:create", (payload: any) =>
-    database.person.create({
-      data: {
-        ...payload,
-        displayName: requireString(payload?.displayName, "Anzeigename"),
-      },
-    }),
+    database.person.create({ data: personDataFromPayload(payload) }),
   );
   safe("persons:update", (payload: any) =>
     database.person.update({
       where: { id: requireString(payload?.id, "Person-ID") },
-      data: payload.data,
+      data: personDataFromPayload(payload?.data),
     }),
   );
   safe("persons:delete", (id) =>
@@ -215,16 +247,12 @@ export function registerIpcHandlers() {
     }),
   );
   safe("vehicles:create", (payload: any) =>
-    database.vehicle.create({
-      data: {
-        manufacturer: payload?.manufacturer || undefined,
-        model: payload?.model || undefined,
-        color: payload?.color || undefined,
-        licensePlate: payload?.licensePlateConfirmed
-          ? payload.licensePlate
-          : undefined,
-        vehicleType: payload?.vehicleType || "Auto",
-      },
+    database.vehicle.create({ data: vehicleDataFromPayload(payload) }),
+  );
+  safe("vehicles:update", (payload: any) =>
+    database.vehicle.update({
+      where: { id: requireString(payload?.id, "Fahrzeug-ID") },
+      data: vehicleDataFromPayload(payload?.data),
     }),
   );
   safe("vehicles:delete", (id) =>
@@ -238,16 +266,12 @@ export function registerIpcHandlers() {
     }),
   );
   safe("relationships:create", (payload: any) =>
-    database.relationship.create({
-      data: {
-        personAId: requireString(payload?.personAId, "Person A"),
-        personBId: payload?.personBId || undefined,
-        relationshipType: payload?.relationshipType || "unklar",
-        direction: payload?.direction || undefined,
-        strength: parseRelationshipStrength(payload?.strength),
-        confidence: payload?.confidence || "medium",
-        description: payload?.description || undefined,
-      },
+    database.relationship.create({ data: relationshipDataFromPayload(payload) }),
+  );
+  safe("relationships:update", (payload: any) =>
+    database.relationship.update({
+      where: { id: requireString(payload?.id, "Beziehungs-ID") },
+      data: relationshipDataFromPayload(payload?.data),
     }),
   );
   safe("relationships:delete", (id) =>

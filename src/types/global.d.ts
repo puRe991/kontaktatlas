@@ -21,12 +21,14 @@ export interface KontaktAtlasApi {
   vehicles: {
     list(): Promise<ApiResult<any[]>>;
     create(payload: unknown): Promise<ApiResult<any>>;
+    update(payload: unknown): Promise<ApiResult<any>>;
     delete(id: string): Promise<ApiResult<any>>;
     linkManual(payload: unknown): Promise<ApiResult<any>>;
   };
   relationships: {
     list(): Promise<ApiResult<any[]>>;
     create(payload: unknown): Promise<ApiResult<any>>;
+    update(payload: unknown): Promise<ApiResult<any>>;
     delete(id: string): Promise<ApiResult<any>>;
     linkManual(payload: unknown): Promise<ApiResult<any>>;
   };

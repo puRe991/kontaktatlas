@@ -19,12 +19,14 @@ const unavailableApi: KontaktAtlasApi = {
   vehicles: {
     list: () => unavailable(),
     create: () => unavailable(),
+    update: () => unavailable(),
     delete: () => unavailable(),
     linkManual: () => unavailable(),
   },
   relationships: {
     list: () => unavailable(),
     create: () => unavailable(),
+    update: () => unavailable(),
     delete: () => unavailable(),
     linkManual: () => unavailable(),
   },
