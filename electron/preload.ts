@@ -11,16 +11,19 @@ contextBridge.exposeInMainWorld("kontaktAtlas", {
     create: (payload: unknown) => invoke("persons:create", payload),
     update: (payload: unknown) => invoke("persons:update", payload),
     delete: (id: string) => invoke("persons:delete", id),
+    linkManual: (payload: unknown) => invoke("persons:linkManual", payload),
   },
   vehicles: {
     list: () => invoke("vehicles:list"),
     create: (payload: unknown) => invoke("vehicles:create", payload),
     delete: (id: string) => invoke("vehicles:delete", id),
+    linkManual: (payload: unknown) => invoke("vehicles:linkManual", payload),
   },
   relationships: {
     list: () => invoke("relationships:list"),
     create: (payload: unknown) => invoke("relationships:create", payload),
     delete: (id: string) => invoke("relationships:delete", id),
+    linkManual: (payload: unknown) => invoke("relationships:linkManual", payload),
   },
   importDrafts: {
     list: () => invoke("importDrafts:list"),

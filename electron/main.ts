@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, session } from "electron";
 import path from "node:path";
 import { registerIpcHandlers } from "./ipc";
 declare const __dirname: string;
@@ -47,6 +47,44 @@ async function loadDevRendererWithRetry(win: BrowserWindow, url: string) {
   throw lastError instanceof Error
     ? lastError
     : new Error(`Renderer konnte nach ${DEV_SERVER_MAX_ATTEMPTS} Versuchen nicht geladen werden.`);
+}
+
+
+function isLoopbackDevServerUrl(rawUrl: string | undefined) {
+  if (!rawUrl) return false;
+
+  try {
+    const url = new URL(rawUrl);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      ["127.0.0.1", "localhost", "::1", "[::1]"].includes(url.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function configureLocalNetworkAccess(isDev: boolean) {
+  if (!isDev || !isLoopbackDevServerUrl(DEV_SERVER_URL)) return;
+
+  session.defaultSession.setPermissionRequestHandler(
+    (webContents, permission, callback) => {
+      const permissionName = String(permission);
+      if (permissionName !== "local-network-access") {
+        callback(false);
+        return;
+      }
+
+      const requesterUrl = webContents.getURL();
+      callback(isLoopbackDevServerUrl(requesterUrl));
+    },
+  );
+
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin) => {
+    const permissionName = String(permission);
+    if (permissionName !== "local-network-access") return false;
+    return isLoopbackDevServerUrl(requestingOrigin);
+  });
 }
 
 function getPreloadPath(isDev: boolean) {
@@ -103,6 +141,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  configureLocalNetworkAccess(Boolean(DEV_SERVER_URL));
   registerIpcHandlers();
   createWindow();
   app.on("activate", () => {
