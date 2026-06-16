@@ -7,6 +7,7 @@ export default function ImportAssistantPage() {
   const [draft, setDraft] = useState<any>();
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [acceptResult, setAcceptResult] = useState<any>(null);
   const parsed = useMemo(
     () =>
       draft
@@ -26,6 +27,7 @@ export default function ImportAssistantPage() {
         }),
       );
       setDraft(d);
+      setAcceptResult(null);
       const p = parseJsonOrFallback<ParsedProfileText | null>(
         d.extractedJson,
         null,
@@ -55,13 +57,14 @@ export default function ImportAssistantPage() {
       ...parsed.vehicles,
     ].filter((f) => all || selected.has(f.id));
     try {
-      await unwrap(
+      const result = await unwrap(
         api().importDrafts.acceptSelected({
           id: draft.id,
           selectedFields: fields,
         }),
       );
-      setError("Übernahme abgeschlossen.");
+      setAcceptResult(result);
+      setError("");
     } catch (err: any) {
       setError(err.message);
     }
@@ -155,6 +158,67 @@ export default function ImportAssistantPage() {
               {f.warning && <em>{f.warning}</em>}
             </label>
           ))}
+
+          {acceptResult && (
+            <section className="stack" aria-live="polite">
+              <h3>Übernahme-Ergebnis</h3>
+              <p>
+                Person erstellt: <strong>{acceptResult.person?.displayName}</strong>.
+                Zusätzlich: {acceptResult.relationships?.length || 0} Beziehungen, {" "}
+                {acceptResult.groups?.length || 0} Gruppen, {" "}
+                {acceptResult.vehicles?.length || 0} Fahrzeuge.
+              </p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Feld</th>
+                    <th>Wert</th>
+                    <th>Status</th>
+                    <th>Hinweis</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(acceptResult.fields || []).map((field: any) => (
+                    <tr key={`${field.fieldId || field.fieldName}-${field.value}`}>
+                      <td>{field.entity}.{field.fieldName}</td>
+                      <td>{field.value}</td>
+                      <td>
+                        <Badge
+                          tone={
+                            field.status === "accepted"
+                              ? "neutral"
+                              : field.status === "manual_review"
+                                ? "warn"
+                                : "danger"
+                          }
+                        >
+                          {field.status === "accepted"
+                            ? "übernommen"
+                            : field.status === "manual_review"
+                              ? "prüfen"
+                              : "übersprungen"}
+                        </Badge>
+                      </td>
+                      <td>{field.message}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!!acceptResult.warnings?.length && (
+                <>
+                  <h4>Manuell zu prüfen</h4>
+                  <ul>
+                    {acceptResult.warnings.map((warning: any) => (
+                      <li key={`${warning.code}-${warning.fieldId || warning.value}`}>
+                        <strong>{warning.entity}.{warning.fieldName}</strong>: {" "}
+                        {warning.message}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
+          )}
           <h3>Fehlende Informationen</h3>
           <ul>
             {parsed.missingInfo.map((m) => (

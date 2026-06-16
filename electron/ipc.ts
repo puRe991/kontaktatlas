@@ -4,7 +4,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { parseProfileText } from "../src/services/profileTextParser";
-import { selectedFieldsToPersonInput } from "../src/services/importDraftService";
+import {
+  ImportAcceptFieldResult,
+  ImportAcceptWarning,
+  selectedFieldsToGroupInputs,
+  selectedFieldsToPersonInput,
+  selectedFieldsToRelationshipInputs,
+  selectedFieldsToVehicleInputs,
+} from "../src/services/importDraftService";
 import { analyzeImageMetadata } from "../src/services/imageAnalysisService";
 import { perceptualHashFromBytes } from "../src/services/imageHashService";
 import { createImageSuggestions } from "../src/services/smartSuggestionService";
@@ -260,6 +267,14 @@ export function registerIpcHandlers() {
         originalTextSnippet: (draft.rawText ?? "").slice(0, 500),
       },
     });
+    const acceptedFields: ImportAcceptFieldResult[] = [];
+    const warnings: ImportAcceptWarning[] = [];
+    const createdRelationships = [];
+    const createdGroups = [];
+    const createdPersonGroupLinks = [];
+    const createdVehicles = [];
+    const createdVehicleLinks = [];
+
     const person = await database.person.create({
       data: {
         displayName: personData.displayName,
@@ -271,11 +286,164 @@ export function registerIpcHandlers() {
         role: personData.role,
       },
     });
+
+    for (const field of selected.filter((item: any) => item?.entity === "person")) {
+      acceptedFields.push({
+        fieldId: field.id,
+        entity: "person",
+        fieldName: field.fieldName,
+        value: field.value,
+        status: personData[field.fieldName] ? "accepted" : "skipped",
+        message: personData[field.fieldName]
+          ? "In den Personen-Datensatz übernommen."
+          : "Personenfeld konnte nicht übernommen werden.",
+        target: "person",
+      });
+    }
+
+    for (const relationshipInput of selectedFieldsToRelationshipInputs(selected)) {
+      const matchingPersons = await database.person.findMany({
+        where: { displayName: relationshipInput.targetName },
+      });
+      const linkedPerson = matchingPersons.length === 1 ? matchingPersons[0] : null;
+      const relationship = await database.relationship.create({
+        data: {
+          personAId: person.id,
+          personBId: linkedPerson?.id,
+          relationshipType: relationshipInput.relationshipType,
+          confidence: relationshipInput.sourceField.confidence,
+          sourceId: source.id,
+          description: linkedPerson
+            ? undefined
+            : `Importierter Zielkontakt: ${relationshipInput.targetName}`,
+        },
+      });
+      createdRelationships.push(relationship);
+      acceptedFields.push({
+        fieldId: relationshipInput.sourceField.id,
+        entity: "relationship",
+        fieldName: relationshipInput.sourceField.fieldName,
+        value: relationshipInput.sourceField.value,
+        status: linkedPerson ? "accepted" : "manual_review",
+        message: linkedPerson
+          ? "Beziehung angelegt und mit vorhandener Zielperson verknüpft."
+          : "Beziehung angelegt, Zielperson aber nicht eindeutig verknüpft. Bitte manuell prüfen.",
+        target: "relationship",
+      });
+      if (!linkedPerson) {
+        warnings.push({
+          code: matchingPersons.length > 1
+            ? "relationship_target_ambiguous"
+            : "relationship_target_unresolved",
+          entity: "relationship",
+          fieldName: relationshipInput.sourceField.fieldName,
+          value: relationshipInput.sourceField.value,
+          fieldId: relationshipInput.sourceField.id,
+          message: matchingPersons.length > 1
+            ? "Mehrere vorhandene Personen passen auf den Zielnamen; die Beziehung wurde nicht automatisch verknüpft."
+            : "Die Zielperson wurde nur als Text erkannt und nicht automatisch als Person angelegt oder verknüpft.",
+        });
+      }
+    }
+
+    for (const groupInput of selectedFieldsToGroupInputs(selected)) {
+      const existingGroups = await database.group.findMany({
+        where: { name: groupInput.name },
+      });
+      const group = existingGroups[0] ?? (await database.group.create({
+        data: { name: groupInput.name, sourceId: source.id },
+      }));
+      const link = await database.personGroupLink.create({
+        data: { personId: person.id, groupId: group.id, sourceId: source.id },
+      });
+      createdGroups.push(group);
+      createdPersonGroupLinks.push(link);
+      acceptedFields.push({
+        fieldId: groupInput.sourceField.id,
+        entity: "group",
+        fieldName: "name",
+        value: groupInput.name,
+        status: "accepted",
+        message: "Gruppe angelegt bzw. wiederverwendet und mit Person verknüpft.",
+        target: "group/personGroupLink",
+      });
+    }
+
+    for (const vehicleInput of selectedFieldsToVehicleInputs(selected)) {
+      const vehicle = await database.vehicle.create({
+        data: {
+          manufacturer: vehicleInput.manufacturer,
+          model: vehicleInput.model,
+          color: vehicleInput.color,
+          licensePlate: vehicleInput.licensePlate,
+          vehicleType: vehicleInput.vehicleType,
+          sourceId: source.id,
+        },
+      });
+      const link = await database.vehiclePersonLink.create({
+        data: { vehicleId: vehicle.id, personId: person.id, sourceId: source.id },
+      });
+      createdVehicles.push(vehicle);
+      createdVehicleLinks.push(link);
+      for (const field of vehicleInput.sourceFields) {
+        acceptedFields.push({
+          fieldId: field.id,
+          entity: "vehicle",
+          fieldName: field.fieldName,
+          value: field.value,
+          status: field.fieldName === "licensePlate" ? "manual_review" : "accepted",
+          message: field.fieldName === "licensePlate"
+            ? "Kennzeichen übernommen; wegen Sensibilität bitte manuell prüfen."
+            : "Fahrzeug angelegt und mit Person verknüpft.",
+          target: "vehicle/vehiclePersonLink",
+        });
+      }
+      if (!vehicleInput.manufacturer && !vehicleInput.model) {
+        warnings.push({
+          code: "vehicle_identity_incomplete",
+          entity: "vehicle",
+          fieldName: "vehicle",
+          value: vehicleInput.licensePlate ?? "",
+          message: "Fahrzeug wurde ohne Hersteller/Modell angelegt und benötigt manuelle Prüfung.",
+        });
+      }
+    }
+
+    for (const field of selected) {
+      if (acceptedFields.some((accepted) => accepted.fieldId === field.id)) continue;
+      warnings.push({
+        code: "field_not_mapped",
+        entity: field.entity,
+        fieldName: field.fieldName,
+        value: field.value,
+        fieldId: field.id,
+        message: "Für dieses Feld existiert kein eindeutiger Import-Mapper.",
+      });
+      acceptedFields.push({
+        fieldId: field.id,
+        entity: field.entity,
+        fieldName: field.fieldName,
+        value: field.value,
+        status: "skipped",
+        message: "Nicht übernommen; bitte manuell prüfen.",
+      });
+    }
+
     await database.importDraft.update({
       where: { id },
       data: { status: "accepted" },
     });
-    return { person, source };
+    return {
+      person,
+      source,
+      relationships: createdRelationships,
+      groups: createdGroups,
+      personGroupLinks: createdPersonGroupLinks,
+      vehicles: createdVehicles,
+      vehicleLinks: createdVehicleLinks,
+      fields: acceptedFields,
+      warnings,
+    };
   });
   safe("importDrafts:discard", (id) =>
     database.importDraft.update({
