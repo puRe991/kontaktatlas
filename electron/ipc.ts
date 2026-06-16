@@ -2,15 +2,15 @@ import { ipcMain, dialog } from "electron";
 import { db } from "./localDb";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { parseProfileText } from "../src/services/profileTextParser";
 import { selectedFieldsToPersonInput } from "../src/services/importDraftService";
 import { analyzeImageMetadata } from "../src/services/imageAnalysisService";
 import { perceptualHashFromBytes } from "../src/services/imageHashService";
 import { createImageSuggestions } from "../src/services/smartSuggestionService";
+import { getAppStoragePaths } from "./storagePaths";
 
 const database = db;
-const storageRoot = path.resolve(process.cwd(), "storage");
 
 type Handler<T = unknown> = (payload: T) => Promise<unknown> | unknown;
 
@@ -311,14 +311,14 @@ export function registerIpcHandlers() {
       ],
     });
     if (result.canceled) return [];
-    await fs.mkdir(path.join(storageRoot, "images"), { recursive: true });
+    const storagePaths = getAppStoragePaths();
+    await fs.mkdir(storagePaths.imagesRoot, { recursive: true });
     const created = [];
     for (const filePath of result.filePaths) {
       const bytes = await fs.readFile(filePath);
       const target = path.join(
-        storageRoot,
-        "images",
-        `${Date.now()}-${path.basename(filePath)}`,
+        storagePaths.imagesRoot,
+        `${Date.now()}-${randomUUID()}-${path.basename(filePath)}`,
       );
       await fs.copyFile(filePath, target);
       const sha256Hash = createHash("sha256").update(bytes).digest("hex");

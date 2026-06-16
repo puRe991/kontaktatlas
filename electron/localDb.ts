@@ -1,9 +1,6 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
-
-const storageRoot = path.resolve(process.cwd(), "storage");
-const dbFile = path.join(storageRoot, "kontaktatlas.json");
+import { getAppStoragePaths } from "./storagePaths";
 
 type Row = Record<string, any>;
 type Store = Record<string, Row[]>;
@@ -142,14 +139,16 @@ class LocalDatabase {
   }
 
   private async load() {
-    await fs.mkdir(storageRoot, { recursive: true });
+    const paths = getAppStoragePaths();
+    await fs.mkdir(paths.imagesRoot, { recursive: true });
+    await fs.mkdir(paths.importsRoot, { recursive: true });
     try {
-      const parsed = JSON.parse(await fs.readFile(dbFile, "utf8"));
+      const parsed = JSON.parse(await fs.readFile(paths.databaseFile, "utf8"));
       this.store = { ...emptyStore(), ...(isPlainObject(parsed) ? parsed : {}) };
     } catch (error: any) {
       if (error?.code !== "ENOENT") {
-        const backup = `${dbFile}.invalid-${Date.now()}`;
-        await fs.rename(dbFile, backup).catch(() => undefined);
+        const backup = `${paths.databaseFile}.invalid-${Date.now()}`;
+        await fs.rename(paths.databaseFile, backup).catch(() => undefined);
         console.error(`[kontakt-atlas:db] Ungültige JSON-Datenbank wurde nach ${backup} verschoben.`);
       }
       this.store = emptyStore();
@@ -158,9 +157,11 @@ class LocalDatabase {
   }
 
   private async save() {
-    const tmp = `${dbFile}.tmp`;
+    const paths = getAppStoragePaths();
+    await fs.mkdir(paths.storageRoot, { recursive: true });
+    const tmp = `${paths.databaseFile}.tmp`;
     await fs.writeFile(tmp, `${JSON.stringify(this.store, null, 2)}\n`, "utf8");
-    await fs.rename(tmp, dbFile);
+    await fs.rename(tmp, paths.databaseFile);
   }
 }
 

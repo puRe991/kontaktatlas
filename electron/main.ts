@@ -1,7 +1,5 @@
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
-import { registerIpcHandlers } from "./ipc";
-
 declare const __dirname: string;
 
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
@@ -59,7 +57,8 @@ function createWindow() {
   void loadRenderer(win, isDev);
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  const { registerIpcHandlers } = await import("./ipc");
   registerIpcHandlers();
   createWindow();
   app.on("activate", () => {
