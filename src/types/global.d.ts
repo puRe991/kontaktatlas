@@ -1,6 +1,6 @@
 declare global {
   interface Window {
-    kontaktAtlas: KontaktAtlasApi;
+    kontaktAtlas?: KontaktAtlasApi;
   }
 }
 export interface ApiResult<T> {
