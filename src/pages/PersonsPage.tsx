@@ -15,7 +15,8 @@ export default function PersonsPage() {
   }, []);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
     try {
       await unwrap(
         api().persons.create({
@@ -25,7 +26,7 @@ export default function PersonsPage() {
           city: String(fd.get("city") || ""),
         }),
       );
-      e.currentTarget.reset();
+      form.reset();
       load();
     } catch (err: any) {
       setError(err.message);

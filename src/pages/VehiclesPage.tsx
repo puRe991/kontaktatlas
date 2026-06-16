@@ -13,7 +13,8 @@ export default function VehiclesPage() {
   }, []);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
     try {
       await unwrap(
         api().vehicles.create({
@@ -24,7 +25,7 @@ export default function VehiclesPage() {
           licensePlateConfirmed: fd.get("licensePlateConfirmed") === "on",
         }),
       );
-      e.currentTarget.reset();
+      form.reset();
       load();
     } catch (err: any) {
       setError(err.message);
