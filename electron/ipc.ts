@@ -55,7 +55,6 @@ const DEFAULT_RELATIONSHIP_STRENGTH = 1;
 const MIN_RELATIONSHIP_STRENGTH = 1;
 const MAX_RELATIONSHIP_STRENGTH = 5;
 
-
 function optionalText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -76,19 +75,30 @@ function vehicleDataFromPayload(payload: any) {
     color: optionalText(payload?.color),
     vehicleType: optionalText(payload?.vehicleType) || "Auto",
   };
-  if (payload?.licensePlateConfirmed) data.licensePlate = optionalText(payload?.licensePlate);
+
+  if (payload?.licensePlateConfirmed) {
+    data.licensePlate = optionalText(payload?.licensePlate);
+  }
+
   return data;
 }
 
 function relationshipDataFromPayload(payload: any) {
+  const personAId = requireString(payload?.personAId, "Person A");
+  const personBId = optionalText(payload?.personBId) || null;
+
+  if (personBId === personAId) {
+    throw new Error("Person A und Zielperson müssen unterschiedlich sein.");
+  }
+
   return {
-    personAId: requireString(payload?.personAId, "Person A"),
-    personBId: payload?.personBId || undefined,
-    relationshipType: payload?.relationshipType || "unklar",
-    direction: payload?.direction || undefined,
+    personAId,
+    personBId,
+    relationshipType: optionalText(payload?.relationshipType) || "unklar",
+    direction: optionalText(payload?.direction) || null,
     strength: parseRelationshipStrength(payload?.strength),
-    confidence: payload?.confidence || "medium",
-    description: payload?.description || undefined,
+    confidence: optionalText(payload?.confidence) || "medium",
+    description: optionalText(payload?.description) || null,
   };
 }
 
