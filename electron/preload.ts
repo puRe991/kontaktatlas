@@ -1,9 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { KontaktAtlasApi } from "../src/types/global";
 
 const invoke = <T>(channel: string, payload?: unknown): Promise<T> =>
   ipcRenderer.invoke(channel, payload);
 
-contextBridge.exposeInMainWorld("kontaktAtlas", {
+export const kontaktAtlasApi = {
   dashboard: () => invoke("dashboard:get"),
   persons: {
     list: () => invoke("persons:list"),
@@ -43,4 +44,6 @@ contextBridge.exposeInMainWorld("kontaktAtlas", {
   search: (query: string) => invoke("search:global", query),
   exportJson: () => invoke("export:json"),
   importJson: (payload: unknown) => invoke("import:json", payload),
-});
+} satisfies KontaktAtlasApi;
+
+contextBridge.exposeInMainWorld("kontaktAtlas", kontaktAtlasApi);

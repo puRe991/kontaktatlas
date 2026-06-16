@@ -16,19 +16,16 @@ export interface KontaktAtlasApi {
     create(payload: unknown): Promise<ApiResult<any>>;
     update(payload: unknown): Promise<ApiResult<any>>;
     delete(id: string): Promise<ApiResult<any>>;
-    linkManual(payload: unknown): Promise<ApiResult<any>>;
   };
   vehicles: {
     list(): Promise<ApiResult<any[]>>;
     create(payload: unknown): Promise<ApiResult<any>>;
     delete(id: string): Promise<ApiResult<any>>;
-    linkManual(payload: unknown): Promise<ApiResult<any>>;
   };
   relationships: {
     list(): Promise<ApiResult<any[]>>;
     create(payload: unknown): Promise<ApiResult<any>>;
     delete(id: string): Promise<ApiResult<any>>;
-    linkManual(payload: unknown): Promise<ApiResult<any>>;
   };
   importDrafts: {
     list(): Promise<ApiResult<any[]>>;
