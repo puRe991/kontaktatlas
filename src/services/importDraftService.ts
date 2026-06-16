@@ -27,6 +27,27 @@ export interface DuplicateCandidate {
   sourceUrl?: string | null;
 }
 
+export type ImportAcceptStatus = "accepted" | "skipped" | "manual_review";
+
+export interface ImportAcceptFieldResult {
+  fieldId?: string;
+  entity: ExtractedField["entity"];
+  fieldName: string;
+  value: string;
+  status: ImportAcceptStatus;
+  message: string;
+  target?: string;
+}
+
+export interface ImportAcceptWarning {
+  code: string;
+  entity: ExtractedField["entity"];
+  fieldName: string;
+  value: string;
+  message: string;
+  fieldId?: string;
+}
+
 export function createImportDraft(
   input: ImportDraftInput,
 ): InMemoryImportDraft {
@@ -108,12 +129,96 @@ export function findDuplicatePersons(
   });
 }
 
+function selectedFieldsToEntityInput(
+  fields: ExtractedField[],
+  entity: ExtractedField["entity"],
+): Record<string, string> {
+  return fields
+    .filter((field) => field.entity === entity)
+    .reduce<
+      Record<string, string>
+    >((acc, item) => ({ ...acc, [item.fieldName]: item.value.trim() }), {});
+}
+
 export function selectedFieldsToPersonInput(
   fields: ExtractedField[],
 ): Record<string, string> {
+  return selectedFieldsToEntityInput(fields, "person");
+}
+
+export function selectedFieldsToGroupInputs(
+  fields: ExtractedField[],
+): Array<{ name: string; sourceField: ExtractedField }> {
   return fields
-    .filter((field) => field.entity === "person")
-    .reduce<
-      Record<string, string>
-    >((acc, item) => ({ ...acc, [item.fieldName]: item.value }), {});
+    .filter((field) => field.entity === "group" && field.fieldName === "name")
+    .map((field) => ({ name: field.value.trim(), sourceField: field }))
+    .filter((group) => group.name.length > 0);
+}
+
+export function selectedFieldsToRelationshipInputs(
+  fields: ExtractedField[],
+): Array<{ relationshipType: string; targetName: string; sourceField: ExtractedField }> {
+  return fields
+    .filter((field) => field.entity === "relationship")
+    .map((field) => ({
+      relationshipType: field.fieldName.trim() || "unklar",
+      targetName: field.value.trim(),
+      sourceField: field,
+    }))
+    .filter((relationship) => relationship.targetName.length > 0);
+}
+
+export function selectedFieldsToVehicleInputs(
+  fields: ExtractedField[],
+): Array<{
+  manufacturer?: string;
+  model?: string;
+  color?: string;
+  licensePlate?: string;
+  vehicleType: string;
+  sourceFields: ExtractedField[];
+}> {
+  const vehicleFields = fields.filter((field) => field.entity === "vehicle");
+  if (!vehicleFields.length) return [];
+
+  const input = vehicleFields.reduce(
+    (acc, field) => {
+      if (field.fieldName === "licensePlate") acc.licensePlate = field.value.trim();
+      if (field.fieldName === "vehicle") {
+        const parts = field.value.trim().split(/\s+/).filter(Boolean);
+        const colorWords: Record<string, string> = {
+          schwarzer: "schwarz",
+          schwarze: "schwarz",
+          weißer: "weiß",
+          weiße: "weiß",
+          roter: "rot",
+          rote: "rot",
+          blauer: "blau",
+          blaue: "blau",
+          grauer: "grau",
+          graue: "grau",
+        };
+        if (parts[0] && colorWords[parts[0].toLowerCase()]) {
+          acc.color = colorWords[parts[0].toLowerCase()];
+          parts.shift();
+        }
+        if (parts.length === 1) acc.manufacturer = parts[0];
+        if (parts.length > 1) {
+          acc.manufacturer = parts[0];
+          acc.model = parts.slice(1).join(" ");
+        }
+      }
+      return acc;
+    },
+    { vehicleType: "Auto", sourceFields: vehicleFields } as {
+      manufacturer?: string;
+      model?: string;
+      color?: string;
+      licensePlate?: string;
+      vehicleType: string;
+      sourceFields: ExtractedField[];
+    },
+  );
+
+  return input.manufacturer || input.model || input.licensePlate ? [input] : [];
 }
